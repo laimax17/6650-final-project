@@ -7,7 +7,6 @@ import java.rmi.RemoteException;
 
 public interface Proposer extends ServerInt {
 
-    int proposalNum = 0;
 
     Promise sendPrepare(Prepare req, Acceptor acceptor) throws RemoteException;
 

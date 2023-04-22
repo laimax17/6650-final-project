@@ -29,7 +29,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     private final Semaphore lock = new Semaphore(1);
     private static Registry registry;
 
-    private List<ServerInt> replicaList = new ArrayList<>(Collections.nCopies(numsOfReplicas, null));
+    private List<ServerInt> replicaList;
 
     private int proposalCnt = 0;
 
@@ -37,7 +37,13 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         super();
     }
 
+    private void setupReplicaList(){
+        this.replicaList = new ArrayList<>(Collections.nCopies(numsOfReplicas, null));
+    }
 
+    private List<ServerInt> getReplicaList() {
+        return this.replicaList;
+    }
 
 
 
@@ -64,24 +70,27 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         try {
             Coordinator obj = new Coordinator();
             registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt",obj);
+            // create replica servers and bind to rmi registry
+            System.out.println("Now creating replica servers.");
+            obj.setupReplicaList();
+            List<ServerInt> replicaList = obj.getReplicaList();
+
+            for (int i = 0; i < numsOfReplicas; i+=1) {
+                try{
+                    replicaList.set(i,new Server(i));
+                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    System.out.println("Replica server "+i+" is created successfully.");
+                }catch (RemoteException e) {
+                    System.out.println("Failed to rebind service: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
 
         }catch (RemoteException  e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());
             e.printStackTrace();
         }
 
-        // create replica servers and bind to rmi registry
-        System.out.println("Now creating replica servers.");
-        for (int i = 0; i < numsOfReplicas; i+=1) {
-            try{
-                replicaList.set(i,new Server(i));
-                registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
-                System.out.println("Replica server "+i+" is created successfully.");
-            }catch (RemoteException e) {
-                System.out.println("Failed to rebind service: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
     }
 
 }

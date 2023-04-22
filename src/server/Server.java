@@ -1,9 +1,6 @@
 package server;
 
-import common.Accept;
-import common.AcceptResponse;
-import common.Prepare;
-import common.Promise;
+import common.*;
 import paxos.Acceptor;
 import paxos.Learner;
 import paxos.Proposer;
@@ -20,12 +17,18 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
     private int replicaNo;
 
+    private List<ServerInt> replicaList;
+
+    private List<Message> history;
+
+
+    private Proposer proposer;
     // proposer param
     private int proposalNum = 0;
 
     // acceptor param
     private int maxProposalNumRec = 0;
-    private String maxProposalValueRec = "";
+    private Message maxProposalValueRec;
 
     public Server(int i) throws RemoteException {
         super();
@@ -81,17 +84,17 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
         Random random = new Random();
         if (random.nextInt(10) == 1) {
             System.out.println(String.format("Acceptor: Replica %d failed to respond to prepare message. Retry later.",this.replicaNo));
-            return new Promise(false,0,"");
+            return new Promise(false,0);
         }
 
         if (req.getProposalNum() >= this.maxProposalNumRec) {
             int lastK = this.maxProposalNumRec;
-            String lastValue = this.maxProposalValueRec;
+            Message lastValue = this.maxProposalValueRec;
             System.out.println(String.format("Acceptor: Replica %d approves the prepare message.",this.replicaNo));
             return new Promise(true, lastK, lastValue);
         }else{
             System.out.println(String.format("Acceptor: Replica %d rejects the prepare message.",this.replicaNo));
-            return new Promise(false,0,"");
+            return new Promise(false,0);
         }
     }
 
@@ -106,18 +109,18 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
         Random random = new Random();
         if (random.nextInt(10) == 1) {
             System.out.println(String.format("Acceptor: Replica %s failed to respond to accept message. Retry later.",this.replicaNo));
-            return new AcceptResponse(false,0,"");
+            return new AcceptResponse(false,0);
         }
 
         if (req.getN() >= this.maxProposalNumRec) {
             this.maxProposalNumRec = req.getN();
-            this.maxProposalValueRec = req.getValue();
+//            this.maxProposalValueRec = req.getValue();
 
             System.out.println(String.format("Acceptor: Replica %d approves the accept message.",this.replicaNo));
             return new AcceptResponse(true, req.getN(), req.getValue());
         }else {
             System.out.println(String.format("Acceptor: Replica %d rejects the prepare message.",this.replicaNo));
-            return new AcceptResponse(false,0,"");
+            return new AcceptResponse(false,0);
         }
     }
 
@@ -131,23 +134,19 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     public AcceptResponse handleLearn(Accept req) throws RemoteException {
         // learner always success
         if (this.maxProposalNumRec == req.getN()) {
-            return new AcceptResponse(true, 0,"");
+            return new AcceptResponse(true, 0,req.getValue());
         }
         this.maxProposalNumRec = req.getN();
-        this.maxProposalValueRec = req.getValue();
+//        this.maxProposalValueRec = req.getValue();
 
         System.out.println(String.format("Learner: Replica %d learns the result.",this.replicaNo));
-        return new AcceptResponse(true, 0,"");
+        return new AcceptResponse(true, 0, req.getValue());
     }
-}
 
+    @Override
+    public int sendProposal(int proposalNum, Message message) throws RemoteException {
 
-    public void sendProposal(String userRequest) throws RemoteException {
-        // pick a proposer first
-        Random random = new Random();
-        int i = random.nextInt(replicaList.size());
-        Proposer proposer = (Proposer) replicaList.get(i);
-        System.out.println(String.format("Picking replica %d as proposer",i));
+        Proposer proposer = this.proposer;
 
         // store acceptors and learners
         List<ServerInt> acceptors = new ArrayList<>();
@@ -158,11 +157,10 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             }
         }
         // create a proposal number
-        int proposalNum = proposalCnt + 1;
-        proposalCnt++;
+        proposalNum++;
         // phase 1
         // send prepare message obtain promise from acceptors
-        System.out.println(String.format("Proposer: replica %d sending prepare messages to acceptors.",i));
+        System.out.println(String.format("Proposer: sending prepare messages to acceptors."));
         Prepare req = new Prepare(proposalNum);
         List<Promise> promiseList = new ArrayList<>();
         for (ServerInt acceptor : acceptors) {
@@ -176,20 +174,21 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
         // if so, send accept requests to acceptors
         int count = 0;
         int maxAcceptedProposalNum = proposalNum;
-        String newUserRequest = userRequest;
-        for (Promise p: promiseList) {
+//        String newUserRequest = userRequest;
+        Message newMessage = message;
+        for (Promise p : promiseList) {
             if (p.getStatus()) {
                 count += 1;
                 int maxN = p.getMaxN();
                 if (maxN > maxAcceptedProposalNum) {
                     maxAcceptedProposalNum = maxN;
-                    newUserRequest = p.getV();
+                    newMessage = p.getV();
                 }
             }
         }
-        proposalCnt = maxAcceptedProposalNum+1;
-        Accept accReq = new Accept(maxAcceptedProposalNum, newUserRequest);
-        if (count >= acceptors.size()/2 + 1){
+        proposalNum = maxAcceptedProposalNum + 1;
+        Accept accReq = new Accept(maxAcceptedProposalNum, newMessage);
+        if (count >= acceptors.size() / 2 + 1) {
             // counting accepted response from acceptors
             int acceptCnt = 0;
             for (ServerInt acceptor : acceptors) {
@@ -198,27 +197,28 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
                     acceptCnt++;
                 }
             }
-
+            Random random = new Random();
             // if the majority of acceptors agree, then send to learners
-            if (acceptCnt >= acceptors.size()/2 + 1) {
+            if (acceptCnt >= acceptors.size() / 2 + 1) {
                 int j = random.nextInt(acceptors.size());
                 Acceptor cur = (Acceptor) acceptors.get(j);
-                System.out.println(String.format("Acceptor: replica %d sending learn messages to learners.",j));
-                for (ServerInt learner: acceptors) {
+                System.out.println(String.format("Acceptor: replica %d sending learn messages to learners.", j));
+                for (ServerInt learner : acceptors) {
                     cur.sendLearn(accReq, (Learner) learner);
                 }
-            }else{
+            } else {
                 // if not, resend prepare request
                 System.out.println("Failed, restarting...");
-
+                return sendProposal(proposalNum, message);
             }
 
-        }else {
+        } else {
             // if not, resend prepare request
             System.out.println("Failed, restarting...");
-
+            return sendProposal(proposalNum, message);
         }
-
-
+        return proposalNum;
 
     }
+}
+
