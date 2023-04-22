@@ -221,6 +221,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
     }
 
+    // TODO implement these methods
     @Override
     public List<Message> getAll() {
         return new ArrayList<>(history);

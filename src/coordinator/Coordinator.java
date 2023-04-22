@@ -1,10 +1,7 @@
 package coordinator;
 
-import common.Accept;
-import common.AcceptResponse;
-import common.Message;
-import common.Prepare;
-import common.Promise;
+import client.CallbackClient;
+import common.*;
 import paxos.Acceptor;
 import paxos.Learner;
 import paxos.Proposer;
@@ -34,19 +31,48 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private int proposalCnt = 0;
 
+    private List<CallbackClient> callbackClients = new ArrayList<>();
+
     public Coordinator() throws RemoteException {
         super();
     }
 
-    private void setupReplicaList(){
+    private void setupReplicaList() {
         this.replicaList = new ArrayList<>(Collections.nCopies(numsOfReplicas, null));
+    }
+
+    @Override
+    public boolean registerClient(CallbackClient callbackClient) throws RemoteException {
+        if (callbackClient == null) return false;
+        this.callbackClients.add(callbackClient);
+        return true;
+    }
+
+    @Override
+    public List<Message> getHistory() {
+        return null;
+    }
+
+    @Override
+    public List<Message> getLatest() {
+        return null;
+    }
+
+    @Override
+    public Message sendMessage(String message) {
+        return null;
+    }
+
+    // TODO use this method to sync all clients when a client sends a new message
+    private void syncClients(Message message) {
+        for (CallbackClient callbackClient : this.callbackClients) {
+            callbackClient.showNewMessage(message);
+        }
     }
 
     private List<ServerInt> getReplicaList() {
         return this.replicaList;
     }
-
-
 
     public static void main(String[] args) throws RemoteException,UnknownHostException {
         System.out.println("coordinator started");
@@ -94,18 +120,4 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     }
 
-    @Override
-    public List<Message> getHistory() {
-        return null;
-    }
-
-    @Override
-    public List<Message> getLatest() {
-        return null;
-    }
-
-    @Override
-    public Message sendMessage(String message) {
-        return null;
-    }
 }
