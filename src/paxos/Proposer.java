@@ -4,11 +4,11 @@ import common.Accept;
 import common.AcceptResponse;
 import common.Prepare;
 import common.Promise;
-import server.KvServer;
+import server.ServerInt;
 
 import java.rmi.RemoteException;
 
-public interface Proposer extends KvServer {
+public interface Proposer extends ServerInt {
 
     int proposalNum = 0;
 
