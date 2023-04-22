@@ -220,5 +220,20 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
         return proposalNum;
 
     }
+
+    @Override
+    public List<Message> getAll() {
+        return new ArrayList<>(history);
+    }
+
+    @Override
+    public List<Message> getUpdate() {
+        return null;
+    }
+
+    @Override
+    public Status saveMessage() {
+        return null;
+    }
 }
 

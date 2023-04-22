@@ -2,6 +2,7 @@ package coordinator;
 
 import common.Accept;
 import common.AcceptResponse;
+import common.Message;
 import common.Prepare;
 import common.Promise;
 import paxos.Acceptor;
@@ -93,4 +94,18 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     }
 
+    @Override
+    public List<Message> getHistory() {
+        return null;
+    }
+
+    @Override
+    public List<Message> getLatest() {
+        return null;
+    }
+
+    @Override
+    public Message sendMessage(String message) {
+        return null;
+    }
 }
