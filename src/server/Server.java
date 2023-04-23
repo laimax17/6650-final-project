@@ -22,7 +22,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     private List<Message> history;
 
 
-    private Proposer proposer;
+//    private Proposer proposer;
     // proposer param
     private int proposalNum = 0;
 
@@ -145,8 +145,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
     @Override
     public int sendProposal(int proposalNum, Message message) throws RemoteException {
-
-        Proposer proposer = this.proposer;
+        Proposer proposer = this;
 
         // store acceptors and learners
         List<ServerInt> acceptors = new ArrayList<>();

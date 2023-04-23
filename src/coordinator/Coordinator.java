@@ -16,6 +16,8 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +53,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     public boolean registerClient(CallbackClient callbackClient) throws RemoteException {
         if (callbackClient == null) return false;
         this.callbackClients.add(callbackClient);
+        System.out.println(callbackClient + " registered");
         return true;
     }
 
@@ -65,23 +68,16 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     }
 
     @Override
-    public Message sendMessage(String username, String message) {
-        long currentTimestamp = System.currentTimeMillis();
-        Message msg = new Message(String.valueOf(currentTimestamp), username, message);
-        Message returnMessage = null;
-        try {
-            returnMessage = proposer.saveMessage(msg);
-        } catch (Exception e) {
-            // TODO: add timeout and elect another proposer
-            elect();
-            // sendMessage(username, message)
-            e.printStackTrace();
-        }
-        return returnMessage;
+    public Message sendMessage(String username, String message) throws RemoteException {
+        LocalDateTime time = LocalDateTime.now();
+        String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        Message msg = new Message(timeStr, username, message);
+        syncClients(msg);
+        return null;
     }
 
     // TODO use this method to sync all clients when a client sends a new message
-    private void syncClients(Message message) {
+    private void syncClients(Message message) throws RemoteException {
         for (CallbackClient callbackClient : this.callbackClients) {
             callbackClient.showNewMessage(message);
         }
@@ -125,22 +121,20 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             for (int i = 0; i < numsOfReplicas; i+=1) {
                 try{
                     replicaList.add(new Server(i));
-                    Naming.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
                     System.out.println("Replica server " + i + " is created successfully.");
                 }catch (RemoteException e) {
                     System.out.println("Failed to rebind service: " + e.getMessage());
-                    e.printStackTrace();
-                } catch (MalformedURLException e) {
                     e.printStackTrace();
                 }
             }
             Random rand = new Random();
             int num = rand.nextInt(numsOfReplicas);
             Coordinator coordinator = new Coordinator(replicaList.get(num), replicaList);
-            Naming.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
+            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
 
 
-        }catch (RemoteException | MalformedURLException e) {
+        }catch (RemoteException e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());
             e.printStackTrace();
         }
