@@ -4,6 +4,7 @@ import client.CallbackClient;
 import common.*;
 import server.Server;
 import server.ServerInt;
+import paxos.*;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -30,9 +31,9 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private Set<CallbackClient> callbackClients = new HashSet<>();
 
-    private ServerInt proposer;
+    private Proposer proposer;
 
-    public Coordinator(ServerInt proposer,List<ServerInt> replicaList) throws RemoteException {
+    public Coordinator(Proposer proposer,List<ServerInt> replicaList) throws RemoteException {
         super();
         this.proposer = proposer;
         this.replicaList = replicaList;
@@ -63,6 +64,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     @Override
     public Message sendMessage(Message message) throws RemoteException {
         try {
+
             System.out.println("Received message from " + message.getUserName() + ": " + message.getContent());
             LocalDateTime time = LocalDateTime.now();
             String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -70,7 +72,11 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             Message returnMessage = null;
             try {
                 // TODO: save message
-                returnMessage = proposer.saveMessage(message);
+//                returnMessage = proposer.saveMessage(message);
+                // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
+                //returnMessage = proposer.saveMessage(msg);
+                // create a new propoasl
+                this.proposalCnt = proposer.sendProposal(proposalCnt, message);
             } catch (Exception e) {
                 // TODO: add timeout and elect another proposer
                 elect();
@@ -111,10 +117,10 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     private void elect() {
         Random rand = new Random();
         int num = rand.nextInt(numsOfReplicas);
-        while (proposer.equals(replicaList.get(num))) {
+        while (this.proposer.equals((Proposer) replicaList.get(num))) {
             num = rand.nextInt(numsOfReplicas);
         }
-        proposer = replicaList.get(num);
+        this.proposer = (Proposer) replicaList.get(num);
     }
 
     public static void main(String[] args) throws RemoteException, UnknownHostException {
@@ -145,7 +151,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             for (int i = 0; i < numsOfReplicas; i+=1) {
                 try{
                     replicaList.add(i,new Server(i));
-                    Naming.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
                     System.out.println("Replica server "+i+" is created successfully.");
                 }catch (RemoteException e) {
                     System.out.println("Failed to rebind service: " + e.getMessage());
@@ -154,9 +160,11 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             }
             Random rand = new Random();
             int num = rand.nextInt(numsOfReplicas);
-            Coordinator coordinator = new Coordinator(replicaList.get(num), replicaList);
-            Naming.rebind("rmi://" + hostAddress + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
-        }catch (Exception  e) {
+            CoordinatorInt coordinator = new Coordinator((Proposer) replicaList.get(num), replicaList);
+            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
+
+
+        }catch (RemoteException e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());
             e.printStackTrace();
         }

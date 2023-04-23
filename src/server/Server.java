@@ -24,7 +24,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
 //    private Proposer proposer;
     // proposer param
-    private int proposalNum = 0;
+    private int proposalInt = 0;
 
     // acceptor param
     private int maxProposalNumRec = 0;
@@ -115,12 +115,13 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
         if (req.getN() >= this.maxProposalNumRec) {
             this.maxProposalNumRec = req.getN();
-//            this.maxProposalValueRec = req.getValue();
 
+            // save message into history
+            saveMessage(req.getValue());
             System.out.println(String.format("Acceptor: Replica %d approves the accept message.",this.replicaNo));
             return new AcceptResponse(true, req.getN(), req.getValue());
         }else {
-            System.out.println(String.format("Acceptor: Replica %d rejects the prepare message.",this.replicaNo));
+            System.out.println(String.format("Acceptor: Replica %d rejects the accept message.",this.replicaNo));
             return new AcceptResponse(false,0);
         }
     }
@@ -138,8 +139,9 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             return new AcceptResponse(true, 0,req.getValue());
         }
         this.maxProposalNumRec = req.getN();
-//        this.maxProposalValueRec = req.getValue();
 
+        // save message into history
+        saveMessage(req.getValue());
         System.out.println(String.format("Learner: Replica %d learns the result.",this.replicaNo));
         return new AcceptResponse(true, 0, req.getValue());
     }
@@ -156,8 +158,8 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
                 acceptors.add(replica);
             }
         }
-        // create a proposal number
-        proposalNum++;
+        // update proposer's proposal number
+        this.proposalInt = proposalNum;
         // phase 1
         // send prepare message obtain promise from acceptors
         System.out.println(String.format("Proposer: sending prepare messages to acceptors."));
@@ -170,24 +172,20 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
         // phase 2
         // check if proposer receive the majority of acceptors success responses
-        // promise returns could be (success)[Accepted N,Accepted V] or (fail)[error,error]
+        // promise returns could be [true,x,x] or [false,x,x]
         // if so, send accept requests to acceptors
         int count = 0;
-        int maxAcceptedProposalNum = proposalNum;
-//        String newUserRequest = userRequest;
-        Message newMessage = message;
         for (Promise p : promiseList) {
             if (p.getStatus()) {
                 count += 1;
                 int maxN = p.getMaxN();
-                if (maxN > maxAcceptedProposalNum) {
-                    maxAcceptedProposalNum = maxN;
-                    newMessage = p.getV();
+                if (maxN > proposalNum) {
+                    return sendProposal(maxN + 1, message);
                 }
             }
         }
-        proposalNum = maxAcceptedProposalNum + 1;
-        Accept accReq = new Accept(maxAcceptedProposalNum, newMessage);
+//        proposalNum = maxAcceptedProposalNum + 1;
+        Accept accReq = new Accept(proposalNum, message);
         if (count >= acceptors.size() / 2 + 1) {
             // counting accepted response from acceptors
             int acceptCnt = 0;
@@ -209,15 +207,17 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             } else {
                 // if not, resend prepare request
                 System.out.println("Failed, restarting...");
-                return sendProposal(proposalNum, message);
+                return sendProposal(this.proposalInt+1, message);
             }
 
         } else {
             // if not, resend prepare request
             System.out.println("Failed, restarting...");
-            return sendProposal(proposalNum, message);
+            return sendProposal(this.proposalInt+1, message);
         }
-        return proposalNum;
+        // save message into history
+        saveMessage(message);
+        return this.proposalInt;
 
     }
 
