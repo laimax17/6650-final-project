@@ -33,13 +33,16 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private List<ServerInt> replicaList;
 
-    private Proposer proposer;
     private int proposalCnt = 0;
 
     private List<CallbackClient> callbackClients = new ArrayList<>();
 
-    public Coordinator() throws RemoteException {
+    private ServerInt proposer;
+
+    public Coordinator(ServerInt proposer,List<ServerInt> replicaList) throws RemoteException {
         super();
+        this.proposer = proposer;
+        this.replicaList = replicaList;
     }
 
     private void setupReplicaList() {
@@ -55,22 +58,31 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     }
 
     @Override
-    public List<Message> getHistory() {
-        return null;
+    public List<Message> getHistory() throws RemoteException {
+        return proposer.getAll();
     }
 
     @Override
-    public List<Message> getLatest() {
-        return null;
+    public List<Message> getLatest() throws RemoteException {
+        return proposer.getUpdate();
     }
 
     @Override
-    public Message sendMessage(String message) throws RemoteException {
+    public Message sendMessage(String username, String message) throws RemoteException {
         LocalDateTime time = LocalDateTime.now();
         String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        Message msg = new Message(timeStr, "client1", message);
+        Message msg = new Message(timeStr, username, message);
+        Message returnMessage = null;
+        try {
+            returnMessage = proposer.saveMessage(msg);
+        } catch (Exception e) {
+            // TODO: add timeout and elect another proposer
+            elect();
+            // sendMessage(username, message)
+            e.printStackTrace();
+        }
         syncClients(msg);
-        return null;
+        return returnMessage;
     }
 
     // TODO use this method to sync all clients when a client sends a new message
@@ -84,7 +96,17 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         return this.replicaList;
     }
 
-    public static void main(String[] args) throws RemoteException,UnknownHostException {
+    // TODO: elect algorithm
+    private void elect() {
+        Random rand = new Random();
+        int num = rand.nextInt(numsOfReplicas);
+        while (proposer.equals(replicaList.get(num))) {
+            num = rand.nextInt(numsOfReplicas);
+        }
+        proposer = replicaList.get(num);
+    }
+
+    public static void main(String[] args) throws RemoteException, UnknownHostException {
         System.out.println("coordinator started");
         InetAddress host = InetAddress.getLocalHost();
         String hostAddress = host.getHostAddress();
@@ -105,32 +127,28 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         }
 
         try {
-            Coordinator obj = new Coordinator();
-            String url = "rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt";
-            registry.rebind(url,obj);
-//            Naming.rebind(url,obj);
-            System.out.println(url);
+
             // create replica servers and bind to rmi registry
             System.out.println("Now creating replica servers.");
-            obj.setupReplicaList();
-            List<ServerInt> replicaList = obj.getReplicaList();
+            List<ServerInt> replicaList = new ArrayList<>();
 
             for (int i = 0; i < numsOfReplicas; i+=1) {
                 try{
-                    replicaList.set(i,new Server(i));
-                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
-                    System.out.println("Replica server "+i+" is created successfully.");
+                    replicaList.add(new Server(i));
+                    registry.rebind("rmi://" + hostAddress + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    System.out.println("Replica server " + i + " is created successfully.");
                 }catch (RemoteException e) {
                     System.out.println("Failed to rebind service: " + e.getMessage());
                     e.printStackTrace();
                 }
             }
+            Random rand = new Random();
+            int num = rand.nextInt(numsOfReplicas);
+            Coordinator coordinator = new Coordinator(replicaList.get(num), replicaList);
+            registry.rebind("rmi://" + hostAddress + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
 
-            // assign a proposer to coordinator
-            obj.proposer = (Proposer) replicaList.get(0);
 
-
-        }catch (RemoteException  e) {
+        }catch (RemoteException e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());
             e.printStackTrace();
         }
