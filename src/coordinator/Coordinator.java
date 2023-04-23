@@ -160,8 +160,8 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             }
             Random rand = new Random();
             int num = rand.nextInt(numsOfReplicas);
-            Coordinator coordinator = new Coordinator((Proposer) replicaList.get(num), replicaList);
-            registry.rebind("rmi://" + hostAddress + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
+            CoordinatorInt coordinator = new Coordinator((Proposer) replicaList.get(num), replicaList);
+            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
 
 
         }catch (RemoteException e) {

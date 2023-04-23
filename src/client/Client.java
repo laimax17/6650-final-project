@@ -43,8 +43,8 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
 
         try {
             System.out.println("finding registry with :"+host+" "+ port);
-//            Registry registry = LocateRegistry.getRegistry(host, port);
-            CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
+            Registry registry = LocateRegistry.getRegistry(host, port);
+            CoordinatorInt coordinator = (CoordinatorInt) registry.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
             // register client to coordinator
             Client client = new Client(username);
             coordinator.registerClient(client);
