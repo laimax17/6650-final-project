@@ -152,7 +152,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             for (int i = 0; i < numsOfReplicas; i+=1) {
                 try{
                     replicaList.add(i,new Server(i));
-                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    registry.rebind("rmi://" + hostAddress + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
                     System.out.println("Replica server "+i+" is created successfully.");
                 }catch (RemoteException e) {
                     System.out.println("Failed to rebind service: " + e.getMessage());
@@ -165,6 +165,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             // use hostname
 //            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
             registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
+
 
 
         }catch (RemoteException e) {
