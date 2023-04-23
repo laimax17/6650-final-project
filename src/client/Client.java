@@ -58,7 +58,7 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
                     System.out.println(msg);
                 }
             }
-            System.out.println("Let's chat");
+//            System.out.println("Let's chat");
             while (true) {
                 input = scanner.nextLine();
 

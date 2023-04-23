@@ -15,5 +15,6 @@ public interface Proposer extends ServerInt {
 
     int sendProposal(int num, Message message) throws RemoteException;
 
+    void setReplicaList(List<ServerInt> replicaList) throws RemoteException;
 
 }

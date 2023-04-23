@@ -234,7 +234,13 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
     @Override
     public Message saveMessage(Message message) {
+        this.history.add(message);
         return null;
+    }
+
+    @Override
+    public void setReplicaList(List<ServerInt> replicaList) {
+        this.replicaList = replicaList;
     }
 }
 
