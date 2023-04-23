@@ -33,6 +33,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     public Server(int i) throws RemoteException {
         super();
         this.replicaNo = i;
+        history = new ArrayList<>();
     }
 
 
