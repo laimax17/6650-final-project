@@ -17,4 +17,6 @@ public interface Proposer extends ServerInt {
 
     void setReplicaList(List<ServerInt> replicaList) throws RemoteException;
 
+    AcceptResponse sendLearn(Accept req, Learner learner) throws RemoteException;
+
 }

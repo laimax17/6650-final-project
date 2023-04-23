@@ -117,7 +117,6 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             this.maxProposalNumRec = req.getN();
 
             // save message into history
-            saveMessage(req.getValue());
             System.out.println(String.format("Acceptor: Replica %d approves the accept message.",this.replicaNo));
             return new AcceptResponse(true, req.getN(), req.getValue());
         }else {
@@ -135,9 +134,9 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     @Override
     public AcceptResponse handleLearn(Accept req) throws RemoteException {
         // learner always success
-        if (this.maxProposalNumRec == req.getN()) {
-            return new AcceptResponse(true, 0,req.getValue());
-        }
+//        if (this.maxProposalNumRec == req.getN()) {
+//            return new AcceptResponse(true, 0,req.getValue());
+//        }
         this.maxProposalNumRec = req.getN();
 
         // save message into history
@@ -198,11 +197,11 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             Random random = new Random();
             // if the majority of acceptors agree, then send to learners
             if (acceptCnt >= acceptors.size() / 2 + 1) {
-                int j = random.nextInt(acceptors.size());
-                Acceptor cur = (Acceptor) acceptors.get(j);
-                System.out.println(String.format("Acceptor: replica %d sending learn messages to learners.", j));
+//                int j = random.nextInt(acceptors.size());
+//                Acceptor cur = (Acceptor) acceptors.get(j);
+                System.out.println(String.format("Proposer: sending learn messages to learners."));
                 for (ServerInt learner : acceptors) {
-                    cur.sendLearn(accReq, (Learner) learner);
+                    sendLearn(accReq, (Learner) learner);
                 }
             } else {
                 // if not, resend prepare request
