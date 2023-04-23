@@ -45,15 +45,18 @@ public class Client extends UnicastRemoteObject implements CallbackClient {
             String input;
             System.out.println("History Chat:\n");
             List<Message> history = coordinator.getHistory();
-            for (Message msg : history) {
-                System.out.println(msg);
+            if (history != null) {
+                for (Message msg : history) {
+                    System.out.println(msg);
+                }
             }
+
             System.out.println("Let's chat");
             while (true) {
                 input = scanner.nextLine();
 
                 // send message
-                Message returnValue = coordinator.sendMessage(input);
+                Message returnValue = coordinator.sendMessage(username, input);
                 System.out.println(returnValue);
 
                 // check for exit condition

@@ -4,6 +4,7 @@ import common.*;
 import server.ServerInt;
 
 import java.rmi.RemoteException;
+import java.util.List;
 
 public interface Proposer extends ServerInt {
 
