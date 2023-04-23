@@ -1,9 +1,7 @@
 package coordinator;
 
-import common.Accept;
-import common.AcceptResponse;
-import common.Prepare;
-import common.Promise;
+import client.CallbackClient;
+import common.*;
 import paxos.Acceptor;
 import paxos.Learner;
 import paxos.Proposer;
@@ -11,11 +9,15 @@ import server.Server;
 import server.ServerInt;
 
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.UnknownHostException;
+import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,96 +31,57 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     private final Semaphore lock = new Semaphore(1);
     private static Registry registry;
 
-    private static List<ServerInt> replicaList = new ArrayList<>(Collections.nCopies(numsOfReplicas, null));
+    private List<ServerInt> replicaList;
 
+    private Proposer proposer;
     private int proposalCnt = 0;
+
+    private List<CallbackClient> callbackClients = new ArrayList<>();
 
     public Coordinator() throws RemoteException {
         super();
     }
 
+    private void setupReplicaList() {
+        this.replicaList = new ArrayList<>(Collections.nCopies(numsOfReplicas, null));
+    }
 
+    @Override
+    public boolean registerClient(CallbackClient callbackClient) throws RemoteException {
+        if (callbackClient == null) return false;
+        this.callbackClients.add(callbackClient);
+        System.out.println(callbackClient + " registered");
+        return true;
+    }
 
-    public void sendProposal(String userRequest) throws RemoteException {
-        // pick a proposer first
-        Random random = new Random();
-        int i = random.nextInt(replicaList.size());
-        Proposer proposer = (Proposer) replicaList.get(i);
-        System.out.println(String.format("Picking replica %d as proposer",i));
+    @Override
+    public List<Message> getHistory() {
+        return null;
+    }
 
-        // store acceptors and learners
-        List<ServerInt> acceptors = new ArrayList<>();
-//        List<Learner> learners = new ArrayList<>();
-        for (ServerInt replica : replicaList) {
-            if (replica != proposer) {
-                acceptors.add(replica);
+    @Override
+    public List<Message> getLatest() {
+        return null;
+    }
 
-            }
+    @Override
+    public Message sendMessage(String message) throws RemoteException {
+        LocalDateTime time = LocalDateTime.now();
+        String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        Message msg = new Message(timeStr, "client1", message);
+        syncClients(msg);
+        return null;
+    }
+
+    // TODO use this method to sync all clients when a client sends a new message
+    private void syncClients(Message message) throws RemoteException {
+        for (CallbackClient callbackClient : this.callbackClients) {
+            callbackClient.showNewMessage(message);
         }
-        // create a proposal number
-        int proposalNum = proposalCnt + 1;
-        proposalCnt++;
-        // phase 1
-        // send prepare message obtain promise from acceptors
-        System.out.println(String.format("Proposer: replica %d sending prepare messages to acceptors.",i));
-        Prepare req = new Prepare(proposalNum);
-        List<Promise> promiseList = new ArrayList<>();
-        for (ServerInt acceptor : acceptors) {
-            Promise p = proposer.sendPrepare(req, (Acceptor) acceptor);
-            promiseList.add(p);
-        }
+    }
 
-        // phase 2
-        // check if proposer receive the majority of acceptors success responses
-        // promise returns could be (success)[Accepted N,Accepted V] or (fail)[error,error]
-        // if so, send accept requests to acceptors
-        int count = 0;
-        int maxAcceptedProposalNum = proposalNum;
-        String newUserRequest = userRequest;
-        for (Promise p: promiseList) {
-            if (p.getStatus()) {
-                count += 1;
-                int maxN = p.getMaxN();
-                if (maxN > maxAcceptedProposalNum) {
-                    maxAcceptedProposalNum = maxN;
-                    newUserRequest = p.getV();
-                }
-            }
-        }
-        proposalCnt = maxAcceptedProposalNum+1;
-        Accept accReq = new Accept(maxAcceptedProposalNum, newUserRequest);
-        if (count >= acceptors.size()/2 + 1){
-            // counting accepted response from acceptors
-            int acceptCnt = 0;
-            for (ServerInt acceptor : acceptors) {
-                AcceptResponse acceptResponse = proposer.sendAccept(accReq, (Acceptor) acceptor);
-                if (acceptResponse.getStatus()) {
-                    acceptCnt++;
-                }
-            }
-
-            // if the majority of acceptors agree, then send to learners
-            if (acceptCnt >= acceptors.size()/2 + 1) {
-                int j = random.nextInt(acceptors.size());
-                Acceptor cur = (Acceptor) acceptors.get(j);
-                System.out.println(String.format("Acceptor: replica %d sending learn messages to learners.",j));
-                for (ServerInt learner: acceptors) {
-                    cur.sendLearn(accReq, (Learner) learner);
-                }
-            }else{
-                // if not, resend prepare request
-                System.out.println("Failed, restarting...");
-
-            }
-
-        }else {
-            // if not, resend prepare request
-            System.out.println("Failed, restarting...");
-
-        }
-
-
-
+    private List<ServerInt> getReplicaList() {
+        return this.replicaList;
     }
 
     public static void main(String[] args) throws RemoteException,UnknownHostException {
@@ -143,25 +106,35 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
         try {
             Coordinator obj = new Coordinator();
-            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt",obj);
+            String url = "rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt";
+            registry.rebind(url,obj);
+//            Naming.rebind(url,obj);
+            System.out.println(url);
+            // create replica servers and bind to rmi registry
+            System.out.println("Now creating replica servers.");
+            obj.setupReplicaList();
+            List<ServerInt> replicaList = obj.getReplicaList();
+
+            for (int i = 0; i < numsOfReplicas; i+=1) {
+                try{
+                    replicaList.set(i,new Server(i));
+                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    System.out.println("Replica server "+i+" is created successfully.");
+                }catch (RemoteException e) {
+                    System.out.println("Failed to rebind service: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+
+            // assign a proposer to coordinator
+            obj.proposer = (Proposer) replicaList.get(0);
+
 
         }catch (RemoteException  e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());
             e.printStackTrace();
         }
 
-        // create replica servers and bind to rmi registry
-        System.out.println("Now creating replica servers.");
-        for (int i = 0; i < numsOfReplicas; i+=1) {
-            try{
-                replicaList.set(i,new Server(i));
-                registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
-                System.out.println("Replica server "+i+" is created successfully.");
-            }catch (RemoteException e) {
-                System.out.println("Failed to rebind service: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
     }
 
 }
