@@ -37,6 +37,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         super();
         this.proposer = proposer;
         this.replicaList = replicaList;
+        proposer.setReplicaList(replicaList);
     }
 
     private void setupReplicaList() {
