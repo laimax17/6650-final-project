@@ -7,4 +7,6 @@ import java.rmi.RemoteException;
 
 public interface CallbackClient extends Remote {
     void showNewMessage(Message message) throws RemoteException;
+
+    String getUsername() throws RemoteException;
 }

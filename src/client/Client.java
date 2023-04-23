@@ -2,6 +2,7 @@ package client;
 
 import common.Message;
 import java.io.IOException;
+import java.io.Serializable;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
@@ -11,18 +12,24 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import java.util.Scanner;
 
-import coordinator.Coordinator;
 import coordinator.CoordinatorInt;
 
-public class Client extends UnicastRemoteObject implements CallbackClient {
+public class Client extends UnicastRemoteObject implements CallbackClient, Serializable {
+    String username;
 
-    public Client() throws RemoteException {
+    protected Client(String username) throws RemoteException {
         super();
+        this.username = username;
     }
 
     @Override
     public void showNewMessage(Message message) {
-        System.out.println("New message from server: " + message);
+        System.out.println(message);
+    }
+
+    @Override
+    public String getUsername() {
+        return this.username;
     }
 
     public static void main(String[] args) {
@@ -36,10 +43,11 @@ public class Client extends UnicastRemoteObject implements CallbackClient {
 
         try {
             System.out.println("finding registry with :"+host+" "+ port);
-            Registry registry = LocateRegistry.getRegistry(host, port);
-            CoordinatorInt coordinator = (CoordinatorInt) registry.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
+//            Registry registry = LocateRegistry.getRegistry(host, port);
+            CoordinatorInt coordinator = (CoordinatorInt) Naming.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
             // register client to coordinator
-            coordinator.registerClient(new Client());
+            Client client = new Client(username);
+            coordinator.registerClient(client);
             // Read commands from commands.txt and process them
             Scanner scanner = new Scanner(System.in);
             String input;
@@ -50,14 +58,14 @@ public class Client extends UnicastRemoteObject implements CallbackClient {
                     System.out.println(msg);
                 }
             }
-
             System.out.println("Let's chat");
             while (true) {
                 input = scanner.nextLine();
 
                 // send message
-                Message returnValue = coordinator.sendMessage(username, input);
-                System.out.println(returnValue);
+                Message message = new Message(username, input);
+                Message returnValue = coordinator.sendMessage(message);
+                System.out.print("\033[F\r" + returnValue + "\n");
 
                 // check for exit condition
                 if (input.equals("exit")) {

@@ -1,10 +1,17 @@
 package common;
 
-public class Message {
+import java.io.Serializable;
+
+public class Message implements Serializable {
 
     private String time;
     private String content;
     private String userName;
+
+    public Message(String userName, String content) {
+        this.content = content;
+        this.userName = userName;
+    }
 
     public Message(String time, String userName, String content) {
         this.content = content;
