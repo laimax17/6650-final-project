@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Scanner;
 
 import coordinator.Coordinator;
+import coordinator.CoordinatorInt;
 
 public class Client implements CallbackClient {
 
@@ -27,6 +28,8 @@ public class Client implements CallbackClient {
 
         try {
             Coordinator coordinator = (Coordinator) Naming.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
+            // register client to coordinator
+            coordinator.registerClient(new Client());
             // Read commands from commands.txt and process them
             Scanner scanner = new Scanner(System.in);
             String input;
