@@ -2,14 +2,11 @@ package coordinator;
 
 import client.CallbackClient;
 import common.*;
-import paxos.Acceptor;
-import paxos.Learner;
-import paxos.Proposer;
 import server.Server;
 import server.ServerInt;
+import paxos.*;
 
 import java.net.InetAddress;
-import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
@@ -18,10 +15,7 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.Semaphore;
 
 
@@ -35,7 +29,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private int proposalCnt = 0;
 
-    private List<CallbackClient> callbackClients = new ArrayList<>();
+    private Set<CallbackClient> callbackClients = new HashSet<>();
 
     private Proposer proposer;
 
@@ -68,31 +62,51 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     }
 
     @Override
-    public Message sendMessage(String username, String message) throws RemoteException {
-        LocalDateTime time = LocalDateTime.now();
-        String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        Message msg = new Message(timeStr, username, message);
-        Message returnMessage = null;
+    public Message sendMessage(Message message) throws RemoteException {
         try {
-            // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
-            //returnMessage = proposer.saveMessage(msg);
-            // create a new propoasl
-            this.proposalCnt = proposer.sendProposal(proposalCnt, msg);
+
+            System.out.println("Received message from " + message.getUserName() + ": " + message.getContent());
+            LocalDateTime time = LocalDateTime.now();
+            String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            message.setTime(timeStr);
+            Message returnMessage = null;
+            try {
+                // TODO: save message
+//                returnMessage = proposer.saveMessage(message);
+                // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
+                //returnMessage = proposer.saveMessage(msg);
+                // create a new propoasl
+                this.proposalCnt = proposer.sendProposal(proposalCnt, message);
+            } catch (Exception e) {
+                // TODO: add timeout and elect another proposer
+                elect();
+                // sendMessage(username, message)
+                e.printStackTrace();
+            }
+            // TODO: sync returnMessage after saveMessage is implemented
+            syncClients(message);
+            return message;
         } catch (Exception e) {
-            // TODO: add timeout and elect another proposer
-            elect();
-            // sendMessage(username, message)
-            e.printStackTrace();
+            System.out.println(e.getMessage());
+            return null;
         }
-        syncClients(msg);
-        return returnMessage;
     }
 
-    // TODO use this method to sync all clients when a client sends a new message
-    private void syncClients(Message message) throws RemoteException {
-        for (CallbackClient callbackClient : this.callbackClients) {
-            callbackClient.showNewMessage(message);
+    private void syncClients(Message message) {
+        HashSet<CallbackClient> toRemove = new HashSet<>();
+        for (CallbackClient destClient : this.callbackClients) {
+            try {
+                if (!message.getUserName().equals(destClient.getUsername())) {
+                    System.out.println("Sending message to " + destClient.getUsername() + " ...");
+                    destClient.showNewMessage(message);
+                }
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                System.out.println("Removing " + destClient + " from callback list");
+                toRemove.add(destClient);
+            }
         }
+        this.callbackClients.removeAll(toRemove);
     }
 
     private List<ServerInt> getReplicaList() {
@@ -130,16 +144,15 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         }
 
         try {
-
             // create replica servers and bind to rmi registry
             System.out.println("Now creating replica servers.");
             List<ServerInt> replicaList = new ArrayList<>();
 
             for (int i = 0; i < numsOfReplicas; i+=1) {
                 try{
-                    replicaList.add(new Server(i));
-                    registry.rebind("rmi://" + hostAddress + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
-                    System.out.println("Replica server " + i + " is created successfully.");
+                    replicaList.add(i,new Server(i));
+                    registry.rebind("rmi://" + hostName + ":" + portNumber +"/replicaServer"+ i,replicaList.get(i));
+                    System.out.println("Replica server "+i+" is created successfully.");
                 }catch (RemoteException e) {
                     System.out.println("Failed to rebind service: " + e.getMessage());
                     e.printStackTrace();
