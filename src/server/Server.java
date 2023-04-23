@@ -24,7 +24,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
 //    private Proposer proposer;
     // proposer param
-    private int proposalNum = 0;
+    private int proposalInt = 0;
 
     // acceptor param
     private int maxProposalNumRec = 0;
@@ -144,7 +144,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     }
 
     @Override
-    public int sendProposal(int proposalNum, Message message) throws RemoteException {
+    public int sendProposal(Message message) throws RemoteException {
         Proposer proposer = this;
 
         // store acceptors and learners
@@ -155,8 +155,8 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
                 acceptors.add(replica);
             }
         }
-        // create a proposal number
-        proposalNum++;
+        // update proposer's proposal number
+        this.proposalInt = proposalNum;
         // phase 1
         // send prepare message obtain promise from acceptors
         System.out.println(String.format("Proposer: sending prepare messages to acceptors."));
@@ -169,7 +169,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 
         // phase 2
         // check if proposer receive the majority of acceptors success responses
-        // promise returns could be (success)[Accepted N,Accepted V] or (fail)[error,error]
+        // promise returns could be [true,x,x] or [false,x,x]
         // if so, send accept requests to acceptors
         int count = 0;
         int maxAcceptedProposalNum = proposalNum;
