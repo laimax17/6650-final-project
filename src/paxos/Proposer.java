@@ -13,7 +13,7 @@ public interface Proposer extends ServerInt {
 
     AcceptResponse sendAccept(Accept req, Acceptor acceptor) throws RemoteException;
 
-    int sendProposal(int proposalNum, Message message) throws RemoteException;
+    int sendProposal(int num, Message message) throws RemoteException;
 
 
 }

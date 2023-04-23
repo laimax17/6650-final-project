@@ -37,9 +37,9 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private List<CallbackClient> callbackClients = new ArrayList<>();
 
-    private ServerInt proposer;
+    private Proposer proposer;
 
-    public Coordinator(ServerInt proposer,List<ServerInt> replicaList) throws RemoteException {
+    public Coordinator(Proposer proposer,List<ServerInt> replicaList) throws RemoteException {
         super();
         this.proposer = proposer;
         this.replicaList = replicaList;
@@ -74,7 +74,10 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         Message msg = new Message(timeStr, username, message);
         Message returnMessage = null;
         try {
-            returnMessage = proposer.saveMessage(msg);
+            // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
+            //returnMessage = proposer.saveMessage(msg);
+            // create a new propoasl
+            this.proposalCnt = proposer.sendProposal(proposalCnt, msg);
         } catch (Exception e) {
             // TODO: add timeout and elect another proposer
             elect();
@@ -100,10 +103,10 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     private void elect() {
         Random rand = new Random();
         int num = rand.nextInt(numsOfReplicas);
-        while (proposer.equals(replicaList.get(num))) {
+        while (this.proposer.equals((Proposer) replicaList.get(num))) {
             num = rand.nextInt(numsOfReplicas);
         }
-        proposer = replicaList.get(num);
+        this.proposer = (Proposer) replicaList.get(num);
     }
 
     public static void main(String[] args) throws RemoteException, UnknownHostException {
@@ -144,7 +147,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             }
             Random rand = new Random();
             int num = rand.nextInt(numsOfReplicas);
-            Coordinator coordinator = new Coordinator(replicaList.get(num), replicaList);
+            Coordinator coordinator = new Coordinator((Proposer) replicaList.get(num), replicaList);
             registry.rebind("rmi://" + hostAddress + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
 
 
