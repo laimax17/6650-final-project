@@ -8,8 +8,10 @@ import java.rmi.RemoteException;
 import java.util.List;
 
 public interface ServerInt extends Remote{
-    List<Message> getAll();
-    List<Message> getUpdate();
-    Status saveMessage();
+    List<Message> getAll() throws RemoteException;
+
+    List<Message> getUpdate() throws RemoteException;
+
+    Message saveMessage(Message message) throws RemoteException;
 
 }

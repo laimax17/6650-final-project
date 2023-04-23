@@ -233,7 +233,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     }
 
     @Override
-    public Status saveMessage() {
+    public Message saveMessage(Message message) {
         return null;
     }
 }
