@@ -29,6 +29,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private List<ServerInt> replicaList;
 
+    private Proposer proposer;
     private int proposalCnt = 0;
 
     private List<CallbackClient> callbackClients = new ArrayList<>();
@@ -112,6 +113,10 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
                     e.printStackTrace();
                 }
             }
+
+            // assign a proposer to coordinator
+            obj.proposer = (Proposer) replicaList.get(0);
+
 
         }catch (RemoteException  e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());
