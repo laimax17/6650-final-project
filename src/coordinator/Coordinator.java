@@ -9,7 +9,9 @@ import server.Server;
 import server.ServerInt;
 
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.UnknownHostException;
+import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -106,6 +108,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             Coordinator obj = new Coordinator();
             String url = "rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt";
             registry.rebind(url,obj);
+//            Naming.rebind(url,obj);
             System.out.println(url);
             // create replica servers and bind to rmi registry
             System.out.println("Now creating replica servers.");

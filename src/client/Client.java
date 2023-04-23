@@ -4,13 +4,21 @@ import common.Message;
 import java.io.IOException;
 import java.rmi.Naming;
 import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.List;
 import java.util.Scanner;
 
 import coordinator.Coordinator;
 import coordinator.CoordinatorInt;
 
-public class Client implements CallbackClient {
+public class Client extends UnicastRemoteObject implements CallbackClient {
+
+    public Client() throws RemoteException {
+        super();
+    }
 
     @Override
     public void showNewMessage(Message message) {
@@ -23,11 +31,13 @@ public class Client implements CallbackClient {
           System.out.println("invalid number of arguments");
         }
         String host = args[0];
-        String port = args[1];
+        int port = Integer.parseInt(args[1]);
         String username = args[2];
 
         try {
-            Coordinator coordinator = (Coordinator) Naming.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
+            System.out.println("finding registry with :"+host+" "+ port);
+            Registry registry = LocateRegistry.getRegistry(host, port);
+            CoordinatorInt coordinator = (CoordinatorInt) registry.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
             // register client to coordinator
             coordinator.registerClient(new Client());
             // Read commands from commands.txt and process them

@@ -8,4 +8,4 @@ SERVER_ID=$(docker ps --filter name=$SERVER_CONTAINER --format "{{.ID}}")
 
 echo $SERVER_ID
 # run client docker container with cmd args
-docker run -it --rm  --network $PROJECT_NETWORK $CLIENT_IMAGE java client.Client $1 $SERVER_ID
+docker run -it --rm  --network $PROJECT_NETWORK $CLIENT_IMAGE java client.Client $SERVER_ID $1 $2
