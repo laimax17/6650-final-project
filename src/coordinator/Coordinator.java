@@ -14,6 +14,8 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -46,6 +48,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     public boolean registerClient(CallbackClient callbackClient) throws RemoteException {
         if (callbackClient == null) return false;
         this.callbackClients.add(callbackClient);
+        System.out.println(callbackClient + " registered");
         return true;
     }
 
@@ -60,12 +63,16 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     }
 
     @Override
-    public Message sendMessage(String message) {
+    public Message sendMessage(String message) throws RemoteException {
+        LocalDateTime time = LocalDateTime.now();
+        String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        Message msg = new Message(timeStr, "client1", message);
+        syncClients(msg);
         return null;
     }
 
     // TODO use this method to sync all clients when a client sends a new message
-    private void syncClients(Message message) {
+    private void syncClients(Message message) throws RemoteException {
         for (CallbackClient callbackClient : this.callbackClients) {
             callbackClient.showNewMessage(message);
         }
@@ -97,7 +104,9 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
         try {
             Coordinator obj = new Coordinator();
-            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt",obj);
+            String url = "rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt";
+            registry.rebind(url,obj);
+            System.out.println(url);
             // create replica servers and bind to rmi registry
             System.out.println("Now creating replica servers.");
             obj.setupReplicaList();
