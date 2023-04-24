@@ -146,7 +146,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     }
 
     @Override
-    public int sendProposal(int proposalNum, Message message) throws RemoteException {
+    public int sendProposal(int num, Message message) throws RemoteException {
         Proposer proposer = this;
 
         // store acceptors and learners
@@ -158,6 +158,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             }
         }
         // update proposer's proposal number
+        int proposalNum = num;
         this.proposalInt = proposalNum;
         // phase 1
         // send prepare message obtain promise from acceptors
@@ -179,11 +180,15 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
                 count += 1;
                 int maxN = p.getMaxN();
                 if (maxN > proposalNum) {
-                    return sendProposal(maxN + 1, message);
+                    // TODO: might need to reconsider the implementation. Maybe should update the proposal
+                    //  number instead of creating a new proposal. (updated)
+                    //
+//                    return sendProposal(maxN + 1, message);
+                    this.proposalInt = maxN + 1;
                 }
             }
         }
-//        proposalNum = maxAcceptedProposalNum + 1;
+        proposalNum = this.proposalInt;
         Accept accReq = new Accept(proposalNum, message);
         if (count >= acceptors.size() / 2 + 1) {
             // counting accepted response from acceptors
@@ -194,7 +199,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
                     acceptCnt++;
                 }
             }
-            Random random = new Random();
+//            Random random = new Random();
             // if the majority of acceptors agree, then send to learners
             if (acceptCnt >= acceptors.size() / 2 + 1) {
 //                int j = random.nextInt(acceptors.size());
