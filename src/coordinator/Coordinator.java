@@ -16,13 +16,21 @@ import java.rmi.server.UnicastRemoteObject;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 
 public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private final static int numsOfReplicas = 9;
     private final Semaphore lock = new Semaphore(1);
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
     private static Registry registry;
 
     private List<ServerInt> replicaList;
@@ -64,33 +72,42 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     @Override
     public Message sendMessage(Message message) throws RemoteException {
+        System.out.println("Received message from " + message.getUserName() + ": " + message.getContent());
+        LocalDateTime time = LocalDateTime.now();
+        String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        message.setTime(timeStr);
+        Message returnMessage = null;
         try {
-
-            System.out.println("Received message from " + message.getUserName() + ": " + message.getContent());
-            LocalDateTime time = LocalDateTime.now();
-            String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-            message.setTime(timeStr);
-            Message returnMessage = null;
-            try {
-                // TODO: save message
+            // TODO: save message
 //                returnMessage = proposer.saveMessage(message);
-                // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
-                //returnMessage = proposer.saveMessage(msg);
-                // create a new propoasl
+            // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
+            //returnMessage = proposer.saveMessage(msg);
+            // create a new proposal
+            Callable<Status> task = () -> {
                 this.proposalCnt = proposer.sendProposal(proposalCnt, message);
-            } catch (Exception e) {
-                // TODO: add timeout and elect another proposer
-                elect();
-                // sendMessage(username, message)
-                e.printStackTrace();
-            }
-            // TODO: sync returnMessage after saveMessage is implemented
-            syncClients(message);
-            return message;
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return null;
+                syncClients(message);
+                return Status.SUCCESS;
+            };
+            Future<Status> future = executorService.submit(task);
+            future.get(5, TimeUnit.SECONDS);
+
+        } catch (InterruptedException e) {
+            // Handle interrupted exception
+        } catch (ExecutionException e) {
+            // Handle execution exception
+        } catch (TimeoutException e) {
+            // Handle timeout exception
+            // Do something else when the request times out
+            elect();
+            System.out.println("Request timed out.");
+        } finally {
+            // Shutdown the executor
+            this.executorService.shutdown();
         }
+        // TODO: sync returnMessage after saveMessage is implemented
+
+        return message;
+
     }
 
     private void syncClients(Message message) {
