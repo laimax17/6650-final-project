@@ -10,7 +10,7 @@ public interface Acceptor extends ServerInt {
     int maxProposalNumberRec = 0;
     AcceptResponse sendLearn(Accept req, Learner learner) throws RemoteException;
 
-    Promise handlePrepare(Prepare req) throws RemoteException;
+    Promise handlePrepare(Prepare req, Proposer proposer) throws RemoteException;
 
     AcceptResponse handleAccept(Accept req) throws RemoteException;
 }

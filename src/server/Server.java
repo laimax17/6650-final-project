@@ -1,11 +1,14 @@
 package server;
 
 import common.*;
+import coordinator.CoordinatorInt;
 import paxos.Acceptor;
 import paxos.Learner;
 import paxos.Proposer;
 
 import java.rmi.RemoteException;
+import java.rmi.server.RemoteServer;
+import java.rmi.server.ServerNotActiveException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +23,8 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
     private List<ServerInt> replicaList;
 
     private List<Message> history;
+
+    private Status serverStatus = Status.NORMAL;
 
 
 //    private Proposer proposer;
@@ -46,7 +51,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
      */
     @Override
     public Promise sendPrepare(Prepare req, Acceptor acceptor) throws RemoteException {
-        return acceptor.handlePrepare(req);
+        return acceptor.handlePrepare(req, this);
     }
 
     /**
@@ -81,11 +86,19 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
      * @throws RemoteException
      */
     @Override
-    public Promise handlePrepare(Prepare req) throws RemoteException{
+    public Promise handlePrepare(Prepare req, Proposer proposer) throws RemoteException{
         Random random = new Random();
         if (random.nextInt(10) == 1) {
             System.out.println(String.format("Acceptor: Replica %d failed to respond to prepare message. Retry later.",this.replicaNo));
             return new Promise(false,0);
+        }
+
+        // check if the acceptor is behind the proposer and recover
+        if (this.history.size() < req.getCurrentPaxosRound()) {
+            this.serverStatus = Status.RECOVERING;
+            List<Message> messages = proposer.recoverAcceptor(this.history.size(), req.getCurrentPaxosRound());
+            this.history.addAll(messages);
+            this.serverStatus = Status.NORMAL;
         }
 
         if (req.getProposalNum() >= this.maxProposalNumRec) {
@@ -113,6 +126,8 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
             return new AcceptResponse(false,0);
         }
 
+        if (this.serverStatus == Status.RECOVERING) return new AcceptResponse(false,0);
+
         if (req.getN() >= this.maxProposalNumRec) {
             this.maxProposalNumRec = req.getN();
 
@@ -137,6 +152,7 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
 //        if (this.maxProposalNumRec == req.getN()) {
 //            return new AcceptResponse(true, 0,req.getValue());
 //        }
+        if (this.serverStatus == Status.RECOVERING) return new AcceptResponse(false,0);
         this.maxProposalNumRec = req.getN();
 
         // save message into history
@@ -160,10 +176,11 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
         // update proposer's proposal number
         int proposalNum = num;
         this.proposalInt = proposalNum;
+        int currentPaxosRound = this.history.size();
         // phase 1
         // send prepare message obtain promise from acceptors
         System.out.println(String.format("Proposer: sending prepare messages to acceptors."));
-        Prepare req = new Prepare(proposalNum);
+        Prepare req = new Prepare(proposalNum, currentPaxosRound);
         List<Promise> promiseList = new ArrayList<>();
         for (ServerInt acceptor : acceptors) {
             Promise p = proposer.sendPrepare(req, (Acceptor) acceptor);
@@ -223,6 +240,11 @@ public class Server extends UnicastRemoteObject implements ServerInt, Proposer, 
         saveMessage(message);
         return this.proposalInt;
 
+    }
+
+    @Override
+    public List<Message> recoverAcceptor(int acceptorRound, int currentPaxosRound) throws RemoteException {
+        return this.history.subList(acceptorRound, currentPaxosRound);
     }
 
     // TODO implement these methods

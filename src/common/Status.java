@@ -1,5 +1,5 @@
 package common;
 
 public enum Status {
-  SUCCESS,FAIL
+  SUCCESS,FAIL,RECOVERING,NORMAL
 }
