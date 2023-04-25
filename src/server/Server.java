@@ -197,10 +197,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
                 count += 1;
                 int maxN = p.getMaxN();
                 if (maxN > proposalNum) {
-                    // TODO: might need to reconsider the implementation. Maybe should update the proposal
-                    //  number instead of creating a new proposal. (updated)
-                    //
-//                    return sendProposal(maxN + 1, message);
                     this.proposalInt = maxN + 1;
                 }
             }
@@ -219,8 +215,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
 //            Random random = new Random();
             // if the majority of acceptors agree, then send to learners
             if (acceptCnt >= acceptors.size() / 2 + 1) {
-//                int j = random.nextInt(acceptors.size());
-//                Acceptor cur = (Acceptor) acceptors.get(j);
                 System.out.println(String.format("Proposer: sending learn messages to learners."));
                 for (ServerInt learner : acceptors) {
                     sendLearn(accReq, (Learner) learner);
@@ -247,7 +241,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
         return this.history.subList(acceptorRound, currentPaxosRound);
     }
 
-    // TODO implement these methods
     @Override
     public List<Message> getAll() {
         return new ArrayList<>(history);
