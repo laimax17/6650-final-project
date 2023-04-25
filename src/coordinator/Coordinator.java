@@ -30,7 +30,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private final static int numsOfReplicas = 9;
     private final Semaphore lock = new Semaphore(1);
-    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private ExecutorService executorService = Executors.newFixedThreadPool(10);
     private static Registry registry;
 
     private List<ServerInt> replicaList;
@@ -46,10 +46,6 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         this.proposer = proposer;
         this.replicaList = replicaList;
         proposer.setReplicaList(replicaList);
-    }
-
-    private void setupReplicaList() {
-        this.replicaList = new ArrayList<>(Collections.nCopies(numsOfReplicas, null));
     }
 
     @Override
@@ -78,11 +74,6 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         message.setTime(timeStr);
         Message returnMessage = null;
         try {
-            // TODO: save message
-//                returnMessage = proposer.saveMessage(message);
-            // TODO: should use proposer.sendProposal(proposalCnt,msg) ?
-            //returnMessage = proposer.saveMessage(msg);
-            // create a new proposal
             Callable<Status> task = () -> {
                 this.proposalCnt = proposer.sendProposal(proposalCnt, message);
                 syncClients(message);
@@ -91,20 +82,12 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             Future<Status> future = executorService.submit(task);
             future.get(5, TimeUnit.SECONDS);
 
-        } catch (InterruptedException e) {
-            // Handle interrupted exception
-        } catch (ExecutionException e) {
-            // Handle execution exception
+        } catch (InterruptedException | ExecutionException e) {
+            System.out.println(e);
         } catch (TimeoutException e) {
-            // Handle timeout exception
-            // Do something else when the request times out
             elect();
             System.out.println("Request timed out.");
-        } finally {
-            // Shutdown the executor
-            this.executorService.shutdown();
         }
-        // TODO: sync returnMessage after saveMessage is implemented
 
         return message;
 
@@ -131,7 +114,6 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         return this.replicaList;
     }
 
-    // TODO: elect algorithm
     private void elect() {
         Random rand = new Random();
         int num = rand.nextInt(numsOfReplicas);
@@ -180,7 +162,6 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             int num = rand.nextInt(numsOfReplicas);
             CoordinatorInt coordinator = new Coordinator((Proposer) replicaList.get(num), replicaList);
             // use hostname
-//            registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
             registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
 
 

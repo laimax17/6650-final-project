@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class Server extends UnicastRemoteObject implements ServerInt, Proposer, Learner, Acceptor {
+public class Server extends UnicastRemoteObject implements Proposer, Learner, Acceptor {
 
     private int replicaNo;
 
