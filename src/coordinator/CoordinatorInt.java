@@ -3,6 +3,7 @@ package coordinator;
 import common.Message;
 
 import client.CallbackClient;
+import paxos.Proposer;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;

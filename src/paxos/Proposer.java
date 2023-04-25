@@ -19,4 +19,6 @@ public interface Proposer extends ServerInt {
 
     AcceptResponse sendLearn(Accept req, Learner learner) throws RemoteException;
 
+    List<Message> recoverAcceptor(int acceptorRound, int currentPaxosRound) throws RemoteException;
+
 }
