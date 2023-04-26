@@ -55,13 +55,12 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         for (CallbackClient existedClient : this.callbackClients) {
             try {
                 if (existedClient.getUsername().equals(callbackClient.getUsername())) {
-                    System.out.println("Same user login again, kick out the old one");
-                    existedClient.kickOut();
                     toRemove.add(existedClient);
+                    existedClient.kickOut();
+                    System.out.println("Same user login again, kick out the old one");
                 }
             } catch (Exception e) {
-                System.out.println("Same user login again, kick out the old one");
-                existedClient.kickOut();
+                System.out.println("Same user login again");
                 toRemove.add(existedClient);
             }
         }
