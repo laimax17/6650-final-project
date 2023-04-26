@@ -51,11 +51,21 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     @Override
     public boolean registerClient(CallbackClient callbackClient) throws RemoteException {
         if (callbackClient == null) return false;
-        for (CallbackClient client : this.callbackClients) {
-            if (client.getUsername().equals(callbackClient.getUsername())) {
-                return false;
+        HashSet<CallbackClient> toRemove = new HashSet<>();
+        for (CallbackClient existedClient : this.callbackClients) {
+            try {
+                if (existedClient.getUsername().equals(callbackClient.getUsername())) {
+                    System.out.println("Same user login again, kick out the old one");
+                    existedClient.kickOut();
+                    toRemove.add(existedClient);
+                }
+            } catch (Exception e) {
+                System.out.println("Same user login again, kick out the old one");
+                existedClient.kickOut();
+                toRemove.add(existedClient);
             }
         }
+        this.callbackClients.removeAll(toRemove);
         this.callbackClients.add(callbackClient);
 
         System.out.println(callbackClient + " registered");
@@ -101,6 +111,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
                     System.out.println("Sending message to " + destClient.getUsername() + " ...");
                     destClient.showNewMessage(message);
                 }
+
             } catch (Exception e) {
                 System.out.println(e.getMessage());
                 System.out.println("Removing " + destClient + " from callback list");
