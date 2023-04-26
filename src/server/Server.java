@@ -201,8 +201,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
 //            Random random = new Random();
             // if the majority of acceptors agree, then send to learners
             if (acceptCnt >= acceptors.size() / 2 + 1) {
-//                int j = random.nextInt(acceptors.size());
-//                Acceptor cur = (Acceptor) acceptors.get(j);
                 System.out.println(String.format("Proposer: sending learn messages to learners."));
                 System.out.println(accReq.getValue());
                 for (ServerInt learner : acceptors) {
