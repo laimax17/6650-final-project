@@ -66,7 +66,7 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
                 // send message
                 Message message = new Message(username, input);
                 Message returnValue = coordinator.sendMessage(message);
-                System.out.println("\033[F\r" + returnValue + "\n");
+                System.out.print("\033[F\r" + returnValue + "\n");
 
                 // check for exit condition
                 if (input.equals("exit")) {
