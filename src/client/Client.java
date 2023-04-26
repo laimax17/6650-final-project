@@ -42,12 +42,15 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
         String username = args[2];
 
         try {
-            System.out.println("finding registry with :"+host+" "+ port);
+            System.out.println("finding registry with :"+ host +" "+ port);
             Registry registry = LocateRegistry.getRegistry(host, port);
             CoordinatorInt coordinator = (CoordinatorInt) registry.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
             // register client to coordinator
             Client client = new Client(username);
-            coordinator.registerClient(client);
+            if (!coordinator.registerClient(client)) {
+                System.out.println("Username already in use, please use another username.");
+                System.exit(1);
+            }
             // Read commands from commands.txt and process them
             Scanner scanner = new Scanner(System.in);
             String input;
@@ -58,14 +61,12 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
                     System.out.println(msg);
                 }
             }
-//            System.out.println("Let's chat");
             while (true) {
                 input = scanner.nextLine();
 
                 // send message
                 Message message = new Message(username, input);
-                Message returnValue = coordinator.sendMessage(message);
-                System.out.print("\033[F\r" + returnValue + "\n");
+                coordinator.sendMessage(message);
 
                 // check for exit condition
                 if (input.equals("exit")) {

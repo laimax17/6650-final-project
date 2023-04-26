@@ -2,6 +2,8 @@ package coordinator;
 
 import client.CallbackClient;
 import common.*;
+
+import jdk.nashorn.internal.codegen.CompilerConstants;
 import server.Server;
 import server.ServerInt;
 import paxos.*;
@@ -29,7 +31,6 @@ import java.util.concurrent.TimeoutException;
 public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
 
     private final static int numsOfReplicas = 9;
-    private final Semaphore lock = new Semaphore(1);
     private ExecutorService executorService = Executors.newFixedThreadPool(10);
     private static Registry registry;
 
@@ -45,13 +46,22 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         super();
         this.proposer = proposer;
         this.replicaList = replicaList;
-        proposer.setReplicaList(replicaList);
+//        proposer.setReplicaList(replicaList);
+        for (ServerInt replica : replicaList) {
+            replica.setReplicaList(replicaList);
+        }
     }
 
     @Override
     public boolean registerClient(CallbackClient callbackClient) throws RemoteException {
         if (callbackClient == null) return false;
+        for (CallbackClient client : this.callbackClients) {
+            if (client.getUsername().equals(callbackClient.getUsername())) {
+                return false;
+            }
+        }
         this.callbackClients.add(callbackClient);
+
         System.out.println(callbackClient + " registered");
         return true;
     }
@@ -62,34 +72,28 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     }
 
     @Override
-    public List<Message> getLatest() throws RemoteException {
-        return proposer.getUpdate();
-    }
-
-    @Override
-    public Message sendMessage(Message message) throws RemoteException {
+    public void sendMessage(Message message) throws RemoteException {
         System.out.println("Received message from " + message.getUserName() + ": " + message.getContent());
         LocalDateTime time = LocalDateTime.now();
         String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
         message.setTime(timeStr);
-        Message returnMessage = null;
+        Callable<Status> task = () -> {
+            this.proposalCnt = proposer.sendProposal(proposalCnt, message);
+            System.out.println("coordinator send message task");
+            System.out.println(message);
+            syncClients(message);
+            return Status.SUCCESS;
+        };
         try {
-            Callable<Status> task = () -> {
-                this.proposalCnt = proposer.sendProposal(proposalCnt, message);
-                syncClients(message);
-                return Status.SUCCESS;
-            };
             Future<Status> future = executorService.submit(task);
             future.get(5, TimeUnit.SECONDS);
-
         } catch (InterruptedException | ExecutionException e) {
             System.out.println(e);
+            System.out.println(proposer.getId());
         } catch (TimeoutException e) {
             elect();
             System.out.println("Request timed out.");
         }
-
-        return message;
 
     }
 
@@ -110,9 +114,6 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         this.callbackClients.removeAll(toRemove);
     }
 
-    private List<ServerInt> getReplicaList() {
-        return this.replicaList;
-    }
 
     private void elect() {
         Random rand = new Random();
@@ -121,6 +122,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             num = rand.nextInt(numsOfReplicas);
         }
         this.proposer = (Proposer) replicaList.get(num);
+        System.out.println("Elected Replica " + num + " as proposer");
     }
 
     public static void main(String[] args) throws RemoteException, UnknownHostException {
@@ -158,13 +160,12 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
                     e.printStackTrace();
                 }
             }
+            // choose a random proposer
             Random rand = new Random();
             int num = rand.nextInt(numsOfReplicas);
             CoordinatorInt coordinator = new Coordinator((Proposer) replicaList.get(num), replicaList);
             // use hostname
             registry.rebind("rmi://" + hostName + ":" + portNumber +"/coordinator.CoordinatorInt", coordinator);
-
-
 
         }catch (RemoteException e) {
             System.out.println("coordinator.Coordinator error:" + e.getMessage());

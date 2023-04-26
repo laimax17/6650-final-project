@@ -1,20 +1,15 @@
 package server;
 
 import common.*;
-import coordinator.CoordinatorInt;
 import paxos.Acceptor;
 import paxos.Learner;
 import paxos.Proposer;
 
 import java.rmi.RemoteException;
-import java.rmi.server.RemoteServer;
-import java.rmi.server.ServerNotActiveException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 
 public class Server extends UnicastRemoteObject implements Proposer, Learner, Acceptor {
 
@@ -26,9 +21,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
 
     private Status serverStatus = Status.NORMAL;
 
-
-//    private Proposer proposer;
-    // proposer param
     private int proposalInt = 0;
 
     // acceptor param
@@ -125,13 +117,11 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
             System.out.println(String.format("Acceptor: Replica %s failed to respond to accept message. Retry later.",this.replicaNo));
             return new AcceptResponse(false,0);
         }
-
+        // if the server is recovering, reject the request
         if (this.serverStatus == Status.RECOVERING) return new AcceptResponse(false,0);
 
         if (req.getN() >= this.maxProposalNumRec) {
             this.maxProposalNumRec = req.getN();
-
-            // save message into history
             System.out.println(String.format("Acceptor: Replica %d approves the accept message.",this.replicaNo));
             return new AcceptResponse(true, req.getN(), req.getValue());
         }else {
@@ -148,10 +138,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
      */
     @Override
     public AcceptResponse handleLearn(Accept req) throws RemoteException {
-        // learner always success
-//        if (this.maxProposalNumRec == req.getN()) {
-//            return new AcceptResponse(true, 0,req.getValue());
-//        }
         if (this.serverStatus == Status.RECOVERING) return new AcceptResponse(false,0);
         this.maxProposalNumRec = req.getN();
 
@@ -197,10 +183,6 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
                 count += 1;
                 int maxN = p.getMaxN();
                 if (maxN > proposalNum) {
-                    // TODO: might need to reconsider the implementation. Maybe should update the proposal
-                    //  number instead of creating a new proposal. (updated)
-                    //
-//                    return sendProposal(maxN + 1, message);
                     this.proposalInt = maxN + 1;
                 }
             }
@@ -222,6 +204,7 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
 //                int j = random.nextInt(acceptors.size());
 //                Acceptor cur = (Acceptor) acceptors.get(j);
                 System.out.println(String.format("Proposer: sending learn messages to learners."));
+                System.out.println(accReq.getValue());
                 for (ServerInt learner : acceptors) {
                     sendLearn(accReq, (Learner) learner);
                 }
@@ -247,15 +230,14 @@ public class Server extends UnicastRemoteObject implements Proposer, Learner, Ac
         return this.history.subList(acceptorRound, currentPaxosRound);
     }
 
-    // TODO implement these methods
     @Override
-    public List<Message> getAll() {
-        return new ArrayList<>(history);
+    public int getId() {
+        return replicaNo;
     }
 
     @Override
-    public List<Message> getUpdate() {
-        return null;
+    public List<Message> getAll() {
+        return new ArrayList<>(history);
     }
 
     @Override
