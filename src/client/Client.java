@@ -31,6 +31,12 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
         return this.username;
     }
 
+    @Override
+    public void kickOut() throws RemoteException {
+        System.out.println(new Message("System", "You have logged in on another device, you will be logged out in this device."));
+        System.exit(1);
+    }
+
     public static void main(String[] args) {
         int len = args.length;
         if (len != 3) {
@@ -46,10 +52,7 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
             CoordinatorInt coordinator = (CoordinatorInt) registry.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
             // register client to coordinator
             Client client = new Client(username);
-            if (!coordinator.registerClient(client)) {
-                System.out.println("Username already in use, please use another username.");
-                System.exit(1);
-            }
+            coordinator.registerClient(client);
             // Read commands from commands.txt and process them
             Scanner scanner = new Scanner(System.in);
             String input;
@@ -62,7 +65,6 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
             }
             while (true) {
                 input = scanner.nextLine();
-
                 // send message
                 Message message = new Message(username, input);
                 Message returnValue = coordinator.sendMessage(message);
