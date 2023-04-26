@@ -54,7 +54,11 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
         HashSet<CallbackClient> toRemove = new HashSet<>();
         for (CallbackClient existedClient : this.callbackClients) {
             try {
-                if (existedClient.getUsername().equals(callbackClient.getUsername())) {
+                Future<String> future = executorService.submit(existedClient::getUsername);
+                String existedClientUsername = future.get(1000, TimeUnit.MILLISECONDS);
+                if (existedClientUsername == null) throw new RuntimeException("Get username failed. Client may be offline.");
+
+                if (existedClientUsername.equals(callbackClient.getUsername())) {
                     toRemove.add(existedClient);
                     existedClient.kickOut();
                     System.out.println("Same user login again, kick out the old one");
@@ -64,11 +68,16 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
                 toRemove.add(existedClient);
             }
         }
-        this.callbackClients.removeAll(toRemove);
-        this.callbackClients.add(callbackClient);
+        try {
+            this.callbackClients.removeAll(toRemove);
+            this.callbackClients.add(callbackClient);
 
-        System.out.println(callbackClient + " registered");
-        return true;
+            System.out.println(callbackClient + " registered");
+            return true;
+        } catch (Exception e) {
+            System.out.println("register client failed");
+            throw new RuntimeException("register client failed");
+        }
     }
 
     @Override

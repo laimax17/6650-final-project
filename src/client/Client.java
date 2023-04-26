@@ -52,7 +52,13 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
             CoordinatorInt coordinator = (CoordinatorInt) registry.lookup("rmi://" + host + ":" + port + "/coordinator.CoordinatorInt");
             // register client to coordinator
             Client client = new Client(username);
-            coordinator.registerClient(client);
+            try {
+                coordinator.registerClient(client);
+            } catch (RuntimeException e) {
+                System.out.println(e.getMessage());
+                System.out.println("Login failed. Please try again");
+                System.exit(1);
+            }
             // Read commands from commands.txt and process them
             Scanner scanner = new Scanner(System.in);
             String input;
@@ -79,7 +85,7 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
             scanner.close();
 
         } catch (NotBoundException | IOException e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
     }
 }
