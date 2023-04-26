@@ -3,7 +3,6 @@ package client;
 import common.Message;
 import java.io.IOException;
 import java.io.Serializable;
-import java.rmi.Naming;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -66,7 +65,8 @@ public class Client extends UnicastRemoteObject implements CallbackClient, Seria
 
                 // send message
                 Message message = new Message(username, input);
-                coordinator.sendMessage(message);
+                Message returnValue = coordinator.sendMessage(message);
+                System.out.println("\033[F\r" + returnValue + "\n");
 
                 // check for exit condition
                 if (input.equals("exit")) {

@@ -12,5 +12,5 @@ import java.util.List;
 public interface CoordinatorInt extends Remote{
     boolean registerClient(CallbackClient callbackClient) throws RemoteException;
     List<Message> getHistory() throws RemoteException;
-    void sendMessage(Message message) throws RemoteException;
+    Message sendMessage(Message message) throws RemoteException;
 }

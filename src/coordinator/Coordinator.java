@@ -3,14 +3,12 @@ package coordinator;
 import client.CallbackClient;
 import common.*;
 
-import jdk.nashorn.internal.codegen.CompilerConstants;
 import server.Server;
 import server.ServerInt;
 import paxos.*;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -23,7 +21,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -71,7 +68,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
     }
 
     @Override
-    public void sendMessage(Message message) throws RemoteException {
+    public Message sendMessage(Message message) throws RemoteException {
         System.out.println("Received message from " + message.getUserName() + ": " + message.getContent());
         LocalDateTime time = LocalDateTime.now();
         String timeStr = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
@@ -93,7 +90,7 @@ public class Coordinator extends UnicastRemoteObject implements CoordinatorInt{
             elect();
             System.out.println("Request timed out.");
         }
-
+        return message;
     }
 
     private void syncClients(Message message) {
